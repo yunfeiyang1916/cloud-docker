@@ -1,0 +1,3 @@
+FROM ubuntu
+#CMD echo $HOME
+CMD ["sh","-c","echo $HOME"]

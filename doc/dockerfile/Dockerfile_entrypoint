@@ -1,0 +1,7 @@
+FROM ubuntu
+# 安装curl工具
+RUN apt-get update \
+    && apt-get install -y curl \
+    && rm -rf /var/lib/apt/lists/*
+# 获取公网ip
+ENTRYPOINT ["curl","-s","http://myip.ipip.net"]

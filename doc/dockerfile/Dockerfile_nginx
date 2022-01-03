@@ -1,0 +1,4 @@
+FROM nginx
+WORKDIR /usr/share/nginx/html
+COPY /config/index2.html .
+RUN echo '<h1>Hello Docker!</h1>'>./index.html
