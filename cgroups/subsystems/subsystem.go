@@ -14,7 +14,7 @@ type ResourceConfig struct {
 type SubSystem interface {
 	// Name 子系统名称，比如cpu、memory
 	Name() string
-	// Set 设置cgroup在这个子系统中的资源限制
+	// Set 设置某个cgroup在这个子系统中的资源限制
 	Set(path string, res *ResourceConfig) error
 	// Apply 将进程添加到某个cgroup中
 	Apply(path string, pid int) error
@@ -22,4 +22,5 @@ type SubSystem interface {
 	Remove(path string) error
 }
 
-var ()
+// SubSystemsIns 通过不同的subsystem初始化实例创建资源限制处理链数组
+var SubSystemsIns = []SubSystem{&CpuSubSystem{}, &CpusetSubSystem{}, &MemorySubSystem{}}

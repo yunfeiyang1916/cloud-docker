@@ -6,17 +6,18 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"testing"
 )
 
-func main() {
+func TestRun(t *testing.T) {
 	logrus.Infof("当前进程id:%d", syscall.Getpid())
 	app := cli.NewApp()
 	app.Name = "docker"
 	app.Usage = `这是说明啊，哈哈
 				 好的`
 	app.Commands = []cli.Command{
-		initCommand,
-		runCommand,
+		test_initCommand,
+		test_runCommand,
 	}
 	app.Before = func(ctx *cli.Context) error {
 		logrus.SetFormatter(&logrus.JSONFormatter{})
@@ -28,7 +29,7 @@ func main() {
 	}
 }
 
-var initCommand = cli.Command{
+var test_initCommand = cli.Command{
 	Name:  "init",
 	Usage: "初始化命令",
 	Action: func(ctx *cli.Context) error {
@@ -38,7 +39,7 @@ var initCommand = cli.Command{
 	},
 }
 
-var runCommand = cli.Command{
+var test_runCommand = cli.Command{
 	Name:  "run",
 	Usage: "run命令",
 	Flags: []cli.Flag{
