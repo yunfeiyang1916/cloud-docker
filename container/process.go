@@ -4,10 +4,11 @@
 package container
 
 import (
-	"github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
 	"syscall"
+
+	"github.com/sirupsen/logrus"
 )
 
 // NewParentProcess 构建父进程，实际上是克隆了一个当前进程处理做环境隔离，执行init命令
@@ -31,6 +32,10 @@ func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
 	}
 	// 将读管道文件附带给子进程，子进程的第4个文件描述符就是该管道文件
 	cmd.ExtraFiles = []*os.File{readPipe}
+	mntUrl := "/root/mnt/"
+	rootUrl := "/root/"
+	NewWorkSpace(rootUrl, mntUrl)
+	cmd.Dir = mntUrl
 	return cmd, writePipe
 }
 
@@ -41,4 +46,88 @@ func NewPipe() (*os.File, *os.File, error) {
 		return nil, nil, err
 	}
 	return read, write, nil
+}
+
+// NewWorkSpace Create a AUFS filesystem as container root workspace
+func NewWorkSpace(rootUrl, mntUrl string) {
+	CreateReadOnlyLayer(rootUrl)
+	CreateWriteLayer(rootUrl)
+	CreateMountPoint(rootUrl, mntUrl)
+}
+
+// CreateReadOnlyLayer 将busybox.tar解压到busybox目录下,作为容器的只读层
+func CreateReadOnlyLayer(rootUrl string) {
+	busyboxUrl := rootUrl + "busybox/"
+	busyboxTarUrl := rootUrl + "busybox.tar"
+	exist, err := PathExists(busyboxUrl)
+	if err != nil {
+		logrus.Infof("Fail to judge whether dir %s exists. %v", busyboxUrl, err)
+	}
+	if !exist {
+		if err = os.Mkdir(busyboxUrl, 0777); err != nil {
+			logrus.Errorf("Mkdir dir %s error. %v", busyboxURL, err)
+		}
+		if _, err = exec.Command("tar", "-xvf", busyboxTarUrl, "-C", busyboxUrl).CombinedOutput(); err != nil {
+			logrus.Errorf("Untar dir %s error %v", busyboxURL, err)
+		}
+	}
+}
+
+// CreateWriteLayer 创建一个名为writeLayer的文件夹作为容器唯一的可写层
+func CreateWriteLayer(rootUrl string) {
+	writeURL := rootUrl + "writeLayer/"
+	if err := os.Mkdir(writeURL, 0777); err != nil {
+		logrus.Errorf("Mkdir dir %s error. %v", writeURL, err)
+	}
+}
+
+func CreateMountPoint(rootUrl, mntUrl string) {
+	// 创建mnt文件夹作为挂载点
+	if err := os.Mkdir(mntUrl, 0777); err != nil {
+		logrus.Errorf("Mkdir dir %s error. %v", mntUrl, err)
+	}
+	// 把writeLayer目录和busybox目录mount到mnt目录下
+	dirs := "dirs=" + rootUrl + "writeLayer:" + rootUrl + "busybox"
+	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", mntUrl)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		logrus.Errorf("%v", err)
+	}
+}
+
+// DeleteWorkSpace Delete the AUFS filesystem while container exit
+func DeleteWorkSpace(rootURL string, mntURL string) {
+	DeleteMountPoint(rootURL, mntURL)
+	DeleteWriteLayer(rootURL)
+}
+
+func DeleteMountPoint(rootURL string, mntURL string) {
+	cmd := exec.Command("umount", mntURL)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Errorf("%v", err)
+	}
+	if err := os.RemoveAll(mntURL); err != nil {
+		log.Errorf("Remove dir %s error %v", mntURL, err)
+	}
+}
+
+func DeleteWriteLayer(rootURL string) {
+	writeURL := rootURL + "writeLayer/"
+	if err := os.RemoveAll(writeURL); err != nil {
+		log.Errorf("Remove dir %s error %v", writeURL, err)
+	}
+}
+
+func PathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nild
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }

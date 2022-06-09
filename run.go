@@ -1,12 +1,13 @@
 package main
 
 import (
+	"os"
+	"strings"
+
 	"github.com/sirupsen/logrus"
 	"github.com/yunfeiyang1916/cloud-docker/cgroups"
 	"github.com/yunfeiyang1916/cloud-docker/cgroups/subsystems"
 	"github.com/yunfeiyang1916/cloud-docker/container"
-	"os"
-	"strings"
 )
 
 // Run 执行run命令
@@ -34,6 +35,10 @@ func Run(tty bool, cmdArray []string, res *subsystems.ResourceConfig) {
 	// 对容器设置完限制后，初始化容器
 	sendInitCommand(cmdArray, writePipe)
 	parent.Wait()
+	mntUrl := "/root/mnt/"
+	rootUrl := "/root/"
+	container.DeleteWorkSpace(rootUrl, mntUrl)
+	os.Exit(0)
 }
 
 // 通过匿名管道向初始化进程发送命令
