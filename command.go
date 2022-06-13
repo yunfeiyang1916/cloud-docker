@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"syscall"
+
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	"github.com/yunfeiyang1916/cloud-docker/cgroups/subsystems"
 	"github.com/yunfeiyang1916/cloud-docker/container"
-	"syscall"
 )
 
 // 内部初始化命令，不能从外部调用
@@ -42,7 +43,7 @@ var runCommand = cli.Command{
 			cmdArray = append(cmdArray, arg)
 		}
 		cmd := ctx.Args().Get(0)
-		logrus.Infof("run中要执行的命令：%s  进程：%d", cmd, syscall.Getpid())
+		logrus.Infof("run中要执行的命令：%s  进程: %d", cmd, syscall.Getpid())
 		// 是否包含ti参数
 		tty := ctx.Bool("ti")
 		// 资源限制

@@ -5,13 +5,14 @@ package container
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/sirupsen/logrus"
 )
 
 // RunContainerInitProcess 是在容器内部执行的，也就是说代码执行到这里后,容器所在的进程其实就已经创建出来了，这是本容器执行的第1个进程。
@@ -30,11 +31,12 @@ func RunContainerInitProcess() error {
 	defaultMountFlags := syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID
 	// 使用mount挂载proc文件系统，以便后面通过ps命令查询当前进程使用资源情况
 	syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), "")
-	// 调用exec.LookPath，可以在系统的PATH路面寻找命令的绝对路径
+	// 调用exec.LookPath，可以在系统的PATH里面寻找命令的绝对路径
 	path, err := exec.LookPath(cmdArray[0])
 	if err != nil {
 		logrus.Errorf("Exec loop path error %v", err)
-		return err
+		//return err
+		path = "/bin/"
 	}
 	logrus.Infof("Find path %s", path)
 	// 如果使用下面这种调用的话，进程id为1的会是容器进程而不是用户进程
@@ -46,8 +48,9 @@ func RunContainerInitProcess() error {
 	//	logrus.Error(err.Error())
 	//	return err
 	//}
+	logrus.Info(os.Environ())
 	// 使用下面的系统调用可以使用户进程覆盖掉容器进程，从而使得用户进程的id可以为1
-	if err := syscall.Exec(path, cmdArray[0:], os.Environ()); err != nil {
+	if err = syscall.Exec(path, cmdArray[0:], os.Environ()); err != nil {
 		logrus.Error(err.Error())
 		return err
 	}
@@ -87,6 +90,10 @@ func setUpMount() {
 
 // 旋转root文件系统，也就是将整个系统切换到一个新的root目录
 func pivotRoot(root string) error {
+	// systemd 加入linux之后, mount namespace 就变成 shared by default, 所以你必须显示声明你要这个新的mount namespace独立。
+	if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
+		return fmt.Errorf("mount rootfs to itself error: %v", err)
+	}
 	// 为了使当前root的老 root 和新 root 不在同一个文件系统下，我们把root重新mount了一次
 	// bind mount是把相同的内容换了一个挂载点的挂载方法
 	if err := syscall.Mount(root, root, "bind", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {

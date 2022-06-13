@@ -32,10 +32,9 @@ func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
 	}
 	// 将读管道文件附带给子进程，子进程的第4个文件描述符就是该管道文件
 	cmd.ExtraFiles = []*os.File{readPipe}
-	mntUrl := "/root/mnt/"
-	rootUrl := "/root/"
-	NewWorkSpace(rootUrl, mntUrl)
-	cmd.Dir = mntUrl
+	//imageURL := "./image"
+	//NewWorkSpace(imageURL)
+	//cmd.Dir = "./merged"
 	return cmd, writePipe
 }
 
@@ -48,8 +47,33 @@ func NewPipe() (*os.File, *os.File, error) {
 	return read, write, nil
 }
 
+func NewWorkSpace(imageURL string) {
+	mergedURL := "./merged"
+	indexURL := "./index"
+	writeLayerURL := "./container_layer"
+	// for easy coding did not check whether certain folders exists before
+	// ideally should do it
+	if err := os.Mkdir(writeLayerURL, 0777); err != nil {
+		logrus.Errorf("Mkdir dir %s error. %v", writeLayerURL, err)
+	}
+	if err := os.Mkdir(mergedURL, 0777); err != nil {
+		logrus.Errorf("Mkdir dir %s error. %v", mergedURL, err)
+	}
+	if err := os.Mkdir(indexURL, 0777); err != nil {
+		logrus.Errorf("Mkdir dir %s error. %v", indexURL, err)
+	}
+	dirs := "lowerdir=" + imageURL + ",upperdir=" + writeLayerURL + ",workdir=" + indexURL
+	logrus.Infof("overlayfs union parameters: %s", dirs)
+	cmd := exec.Command("mount", "-t", "overlay", "overlay", "-o", dirs, mergedURL)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		logrus.Errorf("%v", err)
+	}
+}
+
 // NewWorkSpace Create a AUFS filesystem as container root workspace
-func NewWorkSpace(rootUrl, mntUrl string) {
+func NewOldWorkSpace(rootUrl, mntUrl string) {
 	CreateReadOnlyLayer(rootUrl)
 	CreateWriteLayer(rootUrl)
 	CreateMountPoint(rootUrl, mntUrl)
@@ -65,10 +89,10 @@ func CreateReadOnlyLayer(rootUrl string) {
 	}
 	if !exist {
 		if err = os.Mkdir(busyboxUrl, 0777); err != nil {
-			logrus.Errorf("Mkdir dir %s error. %v", busyboxURL, err)
+			logrus.Errorf("Mkdir dir %s error. %v", busyboxUrl, err)
 		}
 		if _, err = exec.Command("tar", "-xvf", busyboxTarUrl, "-C", busyboxUrl).CombinedOutput(); err != nil {
-			logrus.Errorf("Untar dir %s error %v", busyboxURL, err)
+			logrus.Errorf("Untar dir %s error %v", busyboxUrl, err)
 		}
 	}
 }
@@ -88,7 +112,7 @@ func CreateMountPoint(rootUrl, mntUrl string) {
 	}
 	// 把writeLayer目录和busybox目录mount到mnt目录下
 	dirs := "dirs=" + rootUrl + "writeLayer:" + rootUrl + "busybox"
-	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", mntUrl)
+	cmd := exec.Command("mount", "-t", "overlay", "overlay", "-o", dirs, mntUrl)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -96,8 +120,32 @@ func CreateMountPoint(rootUrl, mntUrl string) {
 	}
 }
 
+// the overlayfs created content for new created container
+func DeleteWorkSpace() {
+	mergedURL := "./merged"
+	writeLayerURL := "./container_layer"
+	indexURL := "./index"
+
+	cmd := exec.Command("umount", mergedURL)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		logrus.Errorf("%v", err)
+	}
+	// remove merged, index and container write layer
+	if err := os.RemoveAll(mergedURL); err != nil {
+		logrus.Errorf("Remove dir %s error %v", mergedURL, err)
+	}
+	if err := os.RemoveAll(writeLayerURL); err != nil {
+		logrus.Errorf("Remove dir %s error %v", writeLayerURL, err)
+	}
+	if err := os.RemoveAll(indexURL); err != nil {
+		logrus.Errorf("Remove dir %s error %v", indexURL, err)
+	}
+}
+
 // DeleteWorkSpace Delete the AUFS filesystem while container exit
-func DeleteWorkSpace(rootURL string, mntURL string) {
+func DeleteOldWorkSpace(rootURL string, mntURL string) {
 	DeleteMountPoint(rootURL, mntURL)
 	DeleteWriteLayer(rootURL)
 }
@@ -107,24 +155,24 @@ func DeleteMountPoint(rootURL string, mntURL string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		log.Errorf("%v", err)
+		logrus.Errorf("%v", err)
 	}
 	if err := os.RemoveAll(mntURL); err != nil {
-		log.Errorf("Remove dir %s error %v", mntURL, err)
+		logrus.Errorf("Remove dir %s error %v", mntURL, err)
 	}
 }
 
 func DeleteWriteLayer(rootURL string) {
 	writeURL := rootURL + "writeLayer/"
 	if err := os.RemoveAll(writeURL); err != nil {
-		log.Errorf("Remove dir %s error %v", writeURL, err)
+		logrus.Errorf("Remove dir %s error %v", writeURL, err)
 	}
 }
 
 func PathExists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
-		return true, nild
+		return true, nil
 	}
 	if os.IsNotExist(err) {
 		return false, nil
