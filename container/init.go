@@ -48,7 +48,6 @@ func RunContainerInitProcess() error {
 	//	logrus.Error(err.Error())
 	//	return err
 	//}
-	logrus.Info(os.Environ())
 	// 使用下面的系统调用可以使用户进程覆盖掉容器进程，从而使得用户进程的id可以为1
 	if err = syscall.Exec(path, cmdArray[0:], os.Environ()); err != nil {
 		logrus.Error(err.Error())
