@@ -4,12 +4,12 @@
     <targets>
       <target name="ubuntu@118.24.6.169:22" type="ssh/sftp" uuid="168bb319-eb0f-4a9f-87e8-56c0f257315a">
         <config>
-          <option name="projectRootOnTarget" value="/home/ubuntu/cloud-docker" />
-          <option name="serverName" value="ubuntu@118.24.6.169:22 password" />
+          <option name="projectRootOnTarget" value="/root/yunfeiyang1916" />
+          <option name="serverName" value="root@118.24.6.169:22 password" />
         </config>
         <ContributedStateBase type="GoLanguageRuntime">
           <config>
-            <option name="goPath" value="/home/ubuntu/work" />
+            <option name="goPath" value="/root/work" />
             <option name="goRoot" value="/usr/local/go/bin/go" />
             <option name="goVersion" value="go1.17.5 linux/amd64" />
           </config>

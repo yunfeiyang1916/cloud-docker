@@ -78,6 +78,7 @@ func setUpMount() {
 		return
 	}
 	logrus.Infof("Current location is %s", pwd)
+
 	pivotRoot(pwd)
 
 	//mount proc

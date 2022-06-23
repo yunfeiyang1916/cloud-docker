@@ -32,9 +32,14 @@ func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
 	}
 	// 将读管道文件附带给子进程，子进程的第4个文件描述符就是该管道文件
 	cmd.ExtraFiles = []*os.File{readPipe}
-	//imageURL := "./image"
+	mntUrl := "/root/mnt/"
+	rootUrl := "/root/"
+	NewOldWorkSpace(rootUrl, mntUrl)
+	cmd.Dir = mntUrl
+	//imageURL := "/tmp/image"
+	// a index thing that is only needed for overlayfs do not totally understand yet
 	//NewWorkSpace(imageURL)
-	//cmd.Dir = "./merged"
+	//cmd.Dir = "/tmp/merged"
 	return cmd, writePipe
 }
 
@@ -48,9 +53,9 @@ func NewPipe() (*os.File, *os.File, error) {
 }
 
 func NewWorkSpace(imageURL string) {
-	mergedURL := "./merged"
-	indexURL := "./index"
-	writeLayerURL := "./container_layer"
+	mergedURL := "/tmp/merged"
+	indexURL := "/tmp/index"
+	writeLayerURL := "/tmp/container_layer"
 	// for easy coding did not check whether certain folders exists before
 	// ideally should do it
 	if err := os.Mkdir(writeLayerURL, 0777); err != nil {
@@ -62,6 +67,7 @@ func NewWorkSpace(imageURL string) {
 	if err := os.Mkdir(indexURL, 0777); err != nil {
 		logrus.Errorf("Mkdir dir %s error. %v", indexURL, err)
 	}
+
 	dirs := "lowerdir=" + imageURL + ",upperdir=" + writeLayerURL + ",workdir=" + indexURL
 	logrus.Infof("overlayfs union parameters: %s", dirs)
 	cmd := exec.Command("mount", "-t", "overlay", "overlay", "-o", dirs, mergedURL)
@@ -69,6 +75,30 @@ func NewWorkSpace(imageURL string) {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		logrus.Errorf("%v", err)
+	}
+}
+
+// the overlayfs created content for new created container
+func DeleteWorkSpace() {
+	mergedURL := "./merged"
+	writeLayerURL := "./container_layer"
+	indexURL := "./index"
+
+	cmd := exec.Command("umount", mergedURL)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		logrus.Errorf("%v", err)
+	}
+	// remove merged, index and container write layer
+	if err := os.RemoveAll(mergedURL); err != nil {
+		logrus.Errorf("Remove dir %s error %v", mergedURL, err)
+	}
+	if err := os.RemoveAll(writeLayerURL); err != nil {
+		logrus.Errorf("Remove dir %s error %v", writeLayerURL, err)
+	}
+	if err := os.RemoveAll(indexURL); err != nil {
+		logrus.Errorf("Remove dir %s error %v", indexURL, err)
 	}
 }
 
@@ -112,35 +142,11 @@ func CreateMountPoint(rootUrl, mntUrl string) {
 	}
 	// 把writeLayer目录和busybox目录mount到mnt目录下
 	dirs := "dirs=" + rootUrl + "writeLayer:" + rootUrl + "busybox"
-	cmd := exec.Command("mount", "-t", "overlay", "overlay", "-o", dirs, mntUrl)
+	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", mntUrl)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		logrus.Errorf("%v", err)
-	}
-}
-
-// the overlayfs created content for new created container
-func DeleteWorkSpace() {
-	mergedURL := "./merged"
-	writeLayerURL := "./container_layer"
-	indexURL := "./index"
-
-	cmd := exec.Command("umount", mergedURL)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		logrus.Errorf("%v", err)
-	}
-	// remove merged, index and container write layer
-	if err := os.RemoveAll(mergedURL); err != nil {
-		logrus.Errorf("Remove dir %s error %v", mergedURL, err)
-	}
-	if err := os.RemoveAll(writeLayerURL); err != nil {
-		logrus.Errorf("Remove dir %s error %v", writeLayerURL, err)
-	}
-	if err := os.RemoveAll(indexURL); err != nil {
-		logrus.Errorf("Remove dir %s error %v", indexURL, err)
 	}
 }
 
