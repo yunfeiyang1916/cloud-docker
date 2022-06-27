@@ -1,18 +1,22 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"math/rand"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/yunfeiyang1916/cloud-docker/cgroups"
 	"github.com/yunfeiyang1916/cloud-docker/cgroups/subsystems"
 	"github.com/yunfeiyang1916/cloud-docker/container"
 )
 
 // Run 执行run命令
-func Run(tty bool, cmdArray []string, res *subsystems.ResourceConfig) {
-	parent, writePipe := container.NewParentProcess(tty)
+func Run(tty bool, cmdArray []string, volume string, res *subsystems.ResourceConfig, containerName string) {
+	parent, writePipe := container.NewParentProcess(tty, volume, containerName)
 	if parent == nil {
 		logrus.Errorf("New parent process error")
 		return
@@ -23,23 +27,31 @@ func Run(tty bool, cmdArray []string, res *subsystems.ResourceConfig) {
 		logrus.Errorf("parent.Run() error,err=%s", err)
 		return
 	}
-
+	// 记录容器信息
+	containerName, err := recordContainerInfo(parent.Process.Pid, cmdArray, containerName)
+	if err != nil {
+		logrus.Errorf("record container info error %s", err)
+		return
+	}
 	// 使用cloud-docker-cgroup 作为cgroup名称
 	// 创建cgroup manager,并通过调用set和apply设置资源限制并限制在容器生效
-	cgroupManager := cgroups.NewCgroupManager("cloud-docker-cgroup")
-	defer cgroupManager.Destroy()
-	// 设置资源限制
-	cgroupManager.Set(res)
-	// 将容器进程加入到各个subsystem挂载对应的cgroup中
-	cgroupManager.Apply(parent.Process.Pid)
+	//cgroupManager := cgroups.NewCgroupManager("cloud-docker-cgroup")
+	//defer cgroupManager.Destroy()
+	//// 设置资源限制
+	//cgroupManager.Set(res)
+	//// 将容器进程加入到各个subsystem挂载对应的cgroup中
+	//cgroupManager.Apply(parent.Process.Pid)
 	// 对容器设置完限制后，初始化容器
 	sendInitCommand(cmdArray, writePipe)
-	parent.Wait()
-	mntUrl := "/root/mnt/"
-	rootUrl := "/root/"
-	container.DeleteOldWorkSpace(rootUrl, mntUrl)
-	//container.DeleteWorkSpace()
-	os.Exit(0)
+	if tty {
+		// 如果是交互式的，父进程需要等待子进程结束
+		parent.Wait()
+		deleteContainerInfo(containerName)
+	}
+	//mntUrl := "/root/mnt/"
+	//rootUrl := "/root/"
+	//container.DeleteWorkSpace(rootUrl, mntUrl, volume)
+	//os.Exit(0)
 }
 
 // 通过匿名管道向初始化进程发送命令
@@ -48,4 +60,63 @@ func sendInitCommand(cmdArray []string, writePipe *os.File) {
 	logrus.Infof("command all is %s", command)
 	writePipe.WriteString(command)
 	writePipe.Close()
+}
+
+// 记录容器信息
+func recordContainerInfo(containerPID int, cmdArray []string, containerName string) (string, error) {
+	id := randStringBytes(10)
+	now := time.Now().Format("2006-01-02 15:04:05")
+	command := strings.Join(cmdArray, "")
+	if containerName == "" {
+		containerName = id
+	}
+	info := &container.ContainerInfo{
+		Pid:         strconv.Itoa(containerPID),
+		Id:          id,
+		Name:        containerName,
+		Command:     command,
+		CreatedTime: now,
+		Status:      container.Running,
+	}
+	buf, err := json.Marshal(info)
+	if err != nil {
+		logrus.Errorf("json.Marshal error,%s", err)
+		return "", err
+	}
+	dirPath := fmt.Sprintf(container.DefaultInfoLocation, containerName)
+	if err = os.MkdirAll(dirPath, 0622); err != nil {
+		logrus.Errorf("MkdirAll %s error %s", dirPath, err)
+		return "", err
+	}
+	fileName := dirPath + "/" + container.ConfigName
+	// 创建配置文件
+	file, err := os.Create(fileName)
+	if err != nil {
+		logrus.Errorf("Create file %s error %s", fileName, err)
+		return "", err
+	}
+	defer file.Close()
+	if _, err = file.Write(buf); err != nil {
+		logrus.Errorf("file write error %s", err)
+		return "", err
+	}
+	return containerName, nil
+}
+
+func deleteContainerInfo(containerName string) {
+	dirPath := fmt.Sprintf(container.DefaultInfoLocation, containerName)
+	if err := os.RemoveAll(dirPath); err != nil {
+		logrus.Errorf("remove all dir %s error %s", dirPath, err)
+	}
+}
+
+// 生成随机id
+func randStringBytes(n int) string {
+	letterBytes := "1234567890"
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
 }

@@ -28,9 +28,12 @@ var runCommand = cli.Command{
 			cloud-docker run -ti [command]`,
 	Flags: []cli.Flag{
 		cli.BoolFlag{Name: "ti", Usage: "enable tty"},
+		cli.StringFlag{Name: "v", Usage: "volume"},
+		cli.BoolFlag{Name: "d", Usage: "detach container"},
 		cli.StringFlag{Name: "m", Usage: "memory limit"},
 		cli.StringFlag{Name: "cpushare", Usage: "cpushare limit"},
 		cli.StringFlag{Name: "cpuset", Usage: "cpuset limit"},
+		cli.StringFlag{Name: "name", Usage: "container name"}, // 容器名字
 	},
 	Action: func(ctx *cli.Context) error {
 		// 判断参数是否包含command
@@ -46,13 +49,56 @@ var runCommand = cli.Command{
 		logrus.Infof("run中要执行的命令：%s  进程: %d", cmd, syscall.Getpid())
 		// 是否包含ti参数
 		tty := ctx.Bool("ti")
+		detach := ctx.Bool("d")
+		// tty与后台运行不能共存
+		if tty && detach {
+			return fmt.Errorf("ti and d paramter can not both provided")
+		}
 		// 资源限制
 		resConf := &subsystems.ResourceConfig{
 			MemoryLimit: ctx.String("m"),
 			CpuSet:      ctx.String("cpuset"),
 			CpuShare:    ctx.String("cpushare"),
 		}
-		Run(tty, cmdArray, resConf)
+		volume := ctx.String("v")
+		containerName := ctx.String("name")
+		Run(tty, cmdArray, volume, resConf, containerName)
+		return nil
+	},
+}
+
+// 镜像打包命令
+var commitCommand = cli.Command{
+	Name:  "commit",
+	Usage: "commit a container into image",
+	Action: func(ctx *cli.Context) error {
+		if len(ctx.Args()) < 1 {
+			return fmt.Errorf("missing container name")
+		}
+		imageName := ctx.Args().Get(0)
+		commitContainer(imageName)
+		return nil
+	},
+}
+
+var listCommand = cli.Command{
+	Name:  "ps",
+	Usage: "list all the containers",
+	Action: func(ctx *cli.Context) error {
+		ListContainers()
+		return nil
+	},
+}
+
+var logCommand = cli.Command{
+	Name:  "logs",
+	Usage: "print logs of a container",
+	Action: func(ctx *cli.Context) error {
+		if len(ctx.Args()) < 1 {
+			return fmt.Errorf("Please input your container name")
+		}
+		containerName := ctx.Args().Get(0)
+		logContainer(containerName)
 		return nil
 	},
 }

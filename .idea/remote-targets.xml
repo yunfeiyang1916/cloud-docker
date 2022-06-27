@@ -2,16 +2,26 @@
 <project version="4">
   <component name="RemoteTargetsManager">
     <targets>
-      <target name="ubuntu@118.24.6.169:22" type="ssh/sftp" uuid="168bb319-eb0f-4a9f-87e8-56c0f257315a">
+      <target name="root@118.24.6.169:22" type="ssh/sftp" uuid="168bb319-eb0f-4a9f-87e8-56c0f257315a">
         <config>
-          <option name="projectRootOnTarget" value="/root/yunfeiyang1916" />
+          <option name="projectRootOnTarget" value="/root/work/src/github.com/yunfeiyang1916" />
           <option name="serverName" value="root@118.24.6.169:22 password" />
         </config>
         <ContributedStateBase type="GoLanguageRuntime">
           <config>
+            <option name="compiledExecutablesVolume">
+              <VolumeState>
+                <option name="remotePath" value="/root/work/src/github.com/yunfeiyang1916/cloud-docker/app" />
+              </VolumeState>
+            </option>
             <option name="goPath" value="/root/work" />
             <option name="goRoot" value="/usr/local/go/bin/go" />
             <option name="goVersion" value="go1.17.5 linux/amd64" />
+            <option name="projectSourcesVolume">
+              <VolumeState>
+                <option name="remotePath" value="/root/work/src/github.com/yunfeiyang1916/cloud-docker" />
+              </VolumeState>
+            </option>
           </config>
         </ContributedStateBase>
       </target>
