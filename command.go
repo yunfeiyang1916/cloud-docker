@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -99,6 +100,31 @@ var logCommand = cli.Command{
 		}
 		containerName := ctx.Args().Get(0)
 		logContainer(containerName)
+		return nil
+	},
+}
+
+var execCommand = cli.Command{
+	Name:  "exec",
+	Usage: "exec a command into container",
+	Action: func(ctx *cli.Context) error {
+		// 判断是否是执行exec fork回调回来的
+		if os.Getenv(EnvExecPID) != "" {
+			logrus.Infof("pid callback pid %v", os.Getpid())
+			return nil
+		}
+		// 我们希望命令格式是cloud_docker exec 容器名 命令
+		if len(ctx.Args()) < 2 {
+			return fmt.Errorf("missing container name or command")
+		}
+		containerName := ctx.Args().Get(0)
+		var cmdArray []string
+		// 将除了容器名之外的参数当作需要执行的命令处理
+		for _, arg := range ctx.Args().Tail() {
+			cmdArray = append(cmdArray, arg)
+		}
+		// 执行命令
+		ExecContainer(containerName, cmdArray)
 		return nil
 	},
 }
