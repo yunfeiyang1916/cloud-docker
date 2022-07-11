@@ -24,7 +24,7 @@ func ListContainers() {
 	// 遍历所有文件
 	for _, file := range files {
 		// 根据容器配置文件获取对应信息
-		info, err := getContainerInfo(file)
+		info, err := getContainerInfo(file.Name())
 		if err != nil {
 			logrus.Errorf("getContainerInfo error %s", err)
 			continue
@@ -50,13 +50,12 @@ func ListContainers() {
 	}
 }
 
-func getContainerInfo(file os.FileInfo) (*container.ContainerInfo, error) {
-	// 获取文件名
-	containerName := file.Name()
+func getContainerInfo(containerName string) (*container.ContainerInfo, error) {
 	configFilePath := fmt.Sprintf(container.DefaultInfoLocation, containerName) + container.ConfigName
 	content, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
-		logrus.Errorf("read file %s error %v")
+		logrus.Errorf("read file %s error %v", configFilePath, err)
+		return nil, err
 	}
 	var info container.ContainerInfo
 	if err = json.Unmarshal(content, &info); err != nil {

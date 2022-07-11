@@ -3,7 +3,7 @@
   <component name="WebServers">
     <option name="servers">
       <webServer id="d7264c0d-912d-4dc3-a5f3-eb3d02414826" name="腾讯云">
-        <fileTransfer rootFolder="/home/ubuntu" accessType="SFTP" host="118.24.6.169" port="22" sshConfigId="18ac70ee-af8f-4116-b0e2-2668d2e29425" sshConfig="root@118.24.6.169:22 password">
+        <fileTransfer rootFolder="/root" accessType="SFTP" host="118.24.6.169" port="22" sshConfigId="18ac70ee-af8f-4116-b0e2-2668d2e29425" sshConfig="root@118.24.6.169:22 password">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

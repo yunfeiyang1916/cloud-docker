@@ -15,8 +15,12 @@ import (
 )
 
 // Run 执行run命令
-func Run(tty bool, cmdArray []string, volume string, res *subsystems.ResourceConfig, containerName string) {
-	parent, writePipe := container.NewParentProcess(tty, volume, containerName)
+func Run(tty bool, cmdArray []string, res *subsystems.ResourceConfig, containerName, volume, imageName string, envSlice []string) {
+	containerID := randStringBytes(10)
+	if containerName == "" {
+		containerName = containerID
+	}
+	parent, writePipe := container.NewParentProcess(tty, containerName, volume, imageName, envSlice)
 	if parent == nil {
 		logrus.Errorf("New parent process error")
 		return
@@ -28,7 +32,7 @@ func Run(tty bool, cmdArray []string, volume string, res *subsystems.ResourceCon
 		return
 	}
 	// 记录容器信息
-	containerName, err := recordContainerInfo(parent.Process.Pid, cmdArray, containerName)
+	containerName, err := recordContainerInfo(parent.Process.Pid, cmdArray, containerName, containerID, volume)
 	if err != nil {
 		logrus.Errorf("record container info error %s", err)
 		return
@@ -47,11 +51,8 @@ func Run(tty bool, cmdArray []string, volume string, res *subsystems.ResourceCon
 		// 如果是交互式的，父进程需要等待子进程结束
 		parent.Wait()
 		deleteContainerInfo(containerName)
+		container.DeleteWorkSpace(volume, containerName)
 	}
-	//mntUrl := "/root/mnt/"
-	//rootUrl := "/root/"
-	//container.DeleteWorkSpace(rootUrl, mntUrl, volume)
-	//os.Exit(0)
 }
 
 // 通过匿名管道向初始化进程发送命令
@@ -63,13 +64,9 @@ func sendInitCommand(cmdArray []string, writePipe *os.File) {
 }
 
 // 记录容器信息
-func recordContainerInfo(containerPID int, cmdArray []string, containerName string) (string, error) {
-	id := randStringBytes(10)
+func recordContainerInfo(containerPID int, cmdArray []string, containerName, id, volume string) (string, error) {
 	now := time.Now().Format("2006-01-02 15:04:05")
 	command := strings.Join(cmdArray, "")
-	if containerName == "" {
-		containerName = id
-	}
 	info := &container.ContainerInfo{
 		Pid:         strconv.Itoa(containerPID),
 		Id:          id,
@@ -77,6 +74,7 @@ func recordContainerInfo(containerPID int, cmdArray []string, containerName stri
 		Command:     command,
 		CreatedTime: now,
 		Status:      container.Running,
+		Volume:      volume,
 	}
 	buf, err := json.Marshal(info)
 	if err != nil {

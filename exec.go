@@ -1,10 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/yunfeiyang1916/cloud-docker/container"
+	"github.com/sirupsen/logrus"
+	_ "github.com/yunfeiyang1916/cloud-docker/nsenter"
 	"io/ioutil"
+	"os"
+	"os/exec"
+	"strings"
 )
 
 const (
@@ -15,20 +18,38 @@ const (
 )
 
 func ExecContainer(containerName string, cmdArray []string) {
-
+	info, err := getContainerInfo(containerName)
+	if err != nil {
+		logrus.Errorf("ExecContainer getContainerInfoByName %s error %v", containerName, err)
+		return
+	}
+	// 把命令以空格为分隔符拼接成一个字符串，便于传递
+	cmdStr := strings.Join(cmdArray, " ")
+	logrus.Infof("container pid %s", info.Pid)
+	logrus.Infof("command %s", cmdStr)
+	// 克隆自己，执行exec命令
+	cmd := exec.Command("/proc/self/exe", "exec")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	os.Setenv(EnvExecPID, info.Pid)
+	os.Setenv(EnvExecCmd, cmdStr)
+	envs := getEnvsByPid(info.Pid)
+	cmd.Env = append(os.Environ(), envs...)
+	if err = cmd.Run(); err != nil {
+		logrus.Errorf("exec container %s error %v", containerName, err)
+	}
 }
 
-func getContainerInfoByName(containerName string) (*container.ContainerInfo, error) {
-	dirPath := fmt.Sprintf(container.DefaultInfoLocation, containerName)
-	configFilePath := dirPath + container.ConfigName
-	// 读取该对应路径下的文件内容
-	buf, err := ioutil.ReadFile(configFilePath)
+// 获取指定进程的环境变量
+func getEnvsByPid(pid string) []string {
+	path := fmt.Sprintf("/proc/%s/environ", pid)
+	buf, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, err
+		logrus.Errorf("read file %s error %v", path, err)
+		return nil
 	}
-	var info container.ContainerInfo
-	if err = json.Unmarshal(buf, &info); err != nil {
-		return nil, err
-	}
-	return &info, nil
+	// 多个环境变量中的分隔符是\u0000
+	envs := strings.Split(string(buf), "\u0000")
+	return envs
 }

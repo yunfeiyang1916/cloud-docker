@@ -35,8 +35,7 @@ func RunContainerInitProcess() error {
 	path, err := exec.LookPath(cmdArray[0])
 	if err != nil {
 		logrus.Errorf("Exec loop path error %v", err)
-		//return err
-		path = "/bin/"
+		return err
 	}
 	logrus.Infof("Find path %s", path)
 	// 如果使用下面这种调用的话，进程id为1的会是容器进程而不是用户进程

@@ -35,6 +35,7 @@ var runCommand = cli.Command{
 		cli.StringFlag{Name: "cpushare", Usage: "cpushare limit"},
 		cli.StringFlag{Name: "cpuset", Usage: "cpuset limit"},
 		cli.StringFlag{Name: "name", Usage: "container name"}, // 容器名字
+		cli.StringSliceFlag{Name: "e", Usage: "set environment"},
 	},
 	Action: func(ctx *cli.Context) error {
 		// 判断参数是否包含command
@@ -46,6 +47,8 @@ var runCommand = cli.Command{
 		for _, arg := range ctx.Args() {
 			cmdArray = append(cmdArray, arg)
 		}
+		imageName := cmdArray[0]
+		cmdArray = cmdArray[1:]
 		cmd := ctx.Args().Get(0)
 		logrus.Infof("run中要执行的命令：%s  进程: %d", cmd, syscall.Getpid())
 		// 是否包含ti参数
@@ -63,7 +66,8 @@ var runCommand = cli.Command{
 		}
 		volume := ctx.String("v")
 		containerName := ctx.String("name")
-		Run(tty, cmdArray, volume, resConf, containerName)
+		envSlice := ctx.StringSlice("e")
+		Run(tty, cmdArray, resConf, containerName, volume, imageName, envSlice)
 		return nil
 	},
 }
@@ -76,8 +80,9 @@ var commitCommand = cli.Command{
 		if len(ctx.Args()) < 1 {
 			return fmt.Errorf("missing container name")
 		}
-		imageName := ctx.Args().Get(0)
-		commitContainer(imageName)
+		containerName := ctx.Args().Get(0)
+		imageName := ctx.Args().Get(1)
+		commitContainer(containerName, imageName)
 		return nil
 	},
 }
@@ -110,7 +115,7 @@ var execCommand = cli.Command{
 	Action: func(ctx *cli.Context) error {
 		// 判断是否是执行exec fork回调回来的
 		if os.Getenv(EnvExecPID) != "" {
-			logrus.Infof("pid callback pid %v", os.Getpid())
+			logrus.Infof("pid callback pid %v", os.Getgid())
 			return nil
 		}
 		// 我们希望命令格式是cloud_docker exec 容器名 命令
@@ -125,6 +130,32 @@ var execCommand = cli.Command{
 		}
 		// 执行命令
 		ExecContainer(containerName, cmdArray)
+		return nil
+	},
+}
+
+var stopCommand = cli.Command{
+	Name:  "stop",
+	Usage: "stop a container",
+	Action: func(ctx *cli.Context) error {
+		if len(ctx.Args()) < 1 {
+			return fmt.Errorf("missing container name")
+		}
+		containerName := ctx.Args().Get(0)
+		stopContainer(containerName)
+		return nil
+	},
+}
+
+var removeCommand = cli.Command{
+	Name:  "rm",
+	Usage: "remove unused containers",
+	Action: func(ctx *cli.Context) error {
+		if len(ctx.Args()) < 1 {
+			return fmt.Errorf("missing container name")
+		}
+		containerName := ctx.Args().Get(0)
+		removeContainer(containerName)
 		return nil
 	},
 }

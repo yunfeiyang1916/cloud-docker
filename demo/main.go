@@ -5,18 +5,19 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
-	"testing"
 )
 
-func TestRun(t *testing.T) {
-	testUTSNamespace()
+func main() {
+	testNamespace()
 }
 
-// 隔离node name和domain name
-func testUTSNamespace() {
+func testNamespace() {
 	cmd := exec.Command("sh")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS,
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC | syscall.CLONE_NEWPID |
+			// 隔离各个进程看到的挂载点
+			syscall.CLONE_NEWNS |
+			syscall.CLONE_NEWNET,
 	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -24,4 +25,5 @@ func testUTSNamespace() {
 	if err := cmd.Run(); err != nil {
 		log.Fatal(err)
 	}
+	os.Exit(-1)
 }
