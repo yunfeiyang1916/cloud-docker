@@ -40,6 +40,8 @@ type ContainerInfo struct {
 	Status string `json:"status"`
 	// 容器的数据卷
 	Volume string `json:"volume"`
+	// 端口映射
+	PortMapping []string `json:"portmapping"`
 }
 
 // NewParentProcess 构建父进程，实际上是克隆了一个当前进程处理做环境隔离，执行init命令

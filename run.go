@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/yunfeiyang1916/cloud-docker/network"
 	"math/rand"
 	"os"
 	"strconv"
@@ -15,7 +16,7 @@ import (
 )
 
 // Run 执行run命令
-func Run(tty bool, cmdArray []string, res *subsystems.ResourceConfig, containerName, volume, imageName string, envSlice []string) {
+func Run(tty bool, cmdArray []string, res *subsystems.ResourceConfig, containerName, volume, imageName string, envSlice []string, nw string, portmapping []string) {
 	containerID := randStringBytes(10)
 	if containerName == "" {
 		containerName = containerID
@@ -45,6 +46,21 @@ func Run(tty bool, cmdArray []string, res *subsystems.ResourceConfig, containerN
 	//cgroupManager.Set(res)
 	//// 将容器进程加入到各个subsystem挂载对应的cgroup中
 	//cgroupManager.Apply(parent.Process.Pid)
+
+	if nw != "" {
+		network.Init()
+		containerInfo := &container.ContainerInfo{
+			Id:          containerID,
+			Pid:         strconv.Itoa(parent.Process.Pid),
+			Name:        containerName,
+			PortMapping: portmapping,
+		}
+		if err := network.Connect(nw, containerInfo); err != nil {
+			logrus.Errorf("Error Connect Network %v", err)
+			return
+		}
+	}
+
 	// 对容器设置完限制后，初始化容器
 	sendInitCommand(cmdArray, writePipe)
 	if tty {
