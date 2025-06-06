@@ -57,9 +57,9 @@ func (d *BridgeNetworkDriver) initBridge(n *Network) error {
 	}
 
 	// 4.设置iptabels的SNAT规则
-	if err := setupIPTables(bridgeName, n.IpRange); err != nil {
-		return fmt.Errorf("Error setting iptables for %s: %v", bridgeName, err)
-	}
+	//if err := setupIPTables(bridgeName, n.IpRange); err != nil {
+	//	return fmt.Errorf("Error setting iptables for %s: %v", bridgeName, err)
+	//}
 
 	return nil
 }
